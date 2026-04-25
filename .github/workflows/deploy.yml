@@ -1,0 +1,39 @@
+﻿name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Build & Push Image"]
+    types: [completed]
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Deploy with kubectl
+        run: |
+          kubectl set image deployment/git-auto-deployer \
+            app=${{ secrets.DOCKER_USERNAME }}/git-auto-deployer:${{ steps.tag.outputs.TAG }} \
+            -n production
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/git-auto-deployer \
+            -n production --timeout=120s
