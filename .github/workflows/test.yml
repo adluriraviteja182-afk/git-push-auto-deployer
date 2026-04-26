@@ -28,3 +28,17 @@ jobs:
         run: |
           cd app
           pytest test_main.py -v --tb=short
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"✅ Tests PASSED on ${{ github.ref }} by ${{ github.actor }}"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"❌ Tests FAILED on ${{ github.ref }} by ${{ github.actor }}"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
